@@ -12,6 +12,7 @@
                 <th>Author</th>
                 <th>Genre</th>
                 <th>isbn</th>
+                <th>Image</th>
                 <th>Actions</th>
             </tr>
             </thead>
@@ -21,7 +22,8 @@
                 <td>{{ book.title }}</td>
                 <td>{{ book.author }}</td>
                 <td>{{ book.genre }}</td>
-                <td>{{ book.isbn }}</td>
+                <td>{{ book.image }}</td>
+                <td><img v-bind:src="'books-image/'+book.image" style="height: 40px; width: 50px;"></td>
                 <td>
                     <div class="btn-group" role="group">
                         <router-link :to="{name: 'editbook', params: { id: book.id }}" class="btn btn-primary">Edit

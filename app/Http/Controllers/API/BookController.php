@@ -19,22 +19,20 @@ class BookController extends Controller
     public function add(Request $request)
     {
         if($request->photo){
-            dd($request->photo );
-            $name = time().'.' . explode('/', explode(':', substr($request->photo, 0, strpos($request->photo, ';')))[1])[1];
-            
-            // \Image::make($request->photo)->save(public_path('images/books/').$name);
-            // $request->merge(['photo' => $name]);
+            $ImageName = time().'.' . explode('/', explode(':', substr($request->photo, 0, strpos($request->photo, ';')))[1])[1];
+            $image = $_SERVER['DOCUMENT_ROOT'].'/books-image/'.$name;
+            $this->base64_to_jpeg($request->photo,$image);
            
+        }else{
+            $ImageName = '';
         }
-
-      
         $book = new Book([
             'title' => $request->title,
             'author' => $request->author,
             'genre' => $request->genre,
             'description' => $request->description,
             'isbn' => $request->isbn,
-            'image' => ' ',
+            'image' => $ImageName,
             'publisher' => $request->publisher,
             'published' => '2023-04-14 00:19:23',
         ]);
@@ -66,5 +64,23 @@ class BookController extends Controller
         $book->delete();
 
         return response()->json('The book successfully deleted');
+    }
+
+    private function base64_to_jpeg($base64_string, $output_file) {
+        // open the output file for writing
+        $ifp = fopen( $output_file, 'wb' ); 
+    
+        // split the string on commas
+        // $data[ 0 ] == "data:image/png;base64"
+        // $data[ 1 ] == <actual base64 string>
+        $data = explode( ',', $base64_string );
+    
+        // we could add validation here with ensuring count( $data ) > 1
+        fwrite( $ifp, base64_decode( $data[ 1 ] ) );
+    
+        // clean up the file resource
+        fclose( $ifp ); 
+    
+        return $output_file; 
     }
 }
