@@ -9,10 +9,21 @@ use Illuminate\Http\Request;
 class BookController extends Controller
 {
     // all books
-    public function index()
+    public function index(Request $request)
     {
-        $books = Book::all()->toArray();
-        return array_reverse($books);
+        $params= $request->all();
+        $perPage =  10;
+        $page = (int) $request->get('page');
+        $page = empty($page) ? 1 : $page;
+        $skip = $perPage * ($page-1);
+        $booksCount = Book::booksSearch($request, $perPage, $skip, $isCount=true);
+        $pagination = $this->createPaginationArray($page, $perPage, $booksCount, $params, 'books');
+        $books = Book::booksSearch($request, $perPage, $skip)->toArray();
+       $response = [
+                'books' => $books,
+                'pagination' => $pagination
+        ];
+        return response()->json($response);
     }
 
     // add book
@@ -20,7 +31,7 @@ class BookController extends Controller
     {
         if($request->photo){
             $ImageName = time().'.' . explode('/', explode(':', substr($request->photo, 0, strpos($request->photo, ';')))[1])[1];
-            $image = $_SERVER['DOCUMENT_ROOT'].'/books-image/'.$name;
+            $image = public_path().'/images/books-image/'.$ImageName;
             $this->base64_to_jpeg($request->photo,$image);
            
         }else{
@@ -34,7 +45,7 @@ class BookController extends Controller
             'isbn' => $request->isbn,
             'image' => $ImageName,
             'publisher' => $request->publisher,
-            'published' => '2023-04-14 00:19:23',
+            'published' =>  now()
         ]);
         $book->save();
 
@@ -52,8 +63,24 @@ class BookController extends Controller
     public function update($id, Request $request)
     {
         $book = Book::find($id);
-        $book->update($request->all());
-
+        if($request->photo){
+            $ImageName = time().'.' . explode('/', explode(':', substr($request->photo, 0, strpos($request->photo, ';')))[1])[1];
+            $image = public_path().'/images/books-image/'.$ImageName;
+            $this->base64_to_jpeg($request->photo,$image);
+           
+        }else{
+            $ImageName = $request->image;
+        }
+            $book->title = $request->title;
+            $book->author = $request->author;
+            $book->genre = $request->genre;
+            $book->description = $request->description;
+            $book->isbn = $request->isbn;
+            $book->publisher = $request->publisher;
+            $book->image = $ImageName;
+            $book->published = now();
+        
+        $book->save();
         return response()->json('The book successfully updated');
     }
 
@@ -67,20 +94,92 @@ class BookController extends Controller
     }
 
     private function base64_to_jpeg($base64_string, $output_file) {
-        // open the output file for writing
         $ifp = fopen( $output_file, 'wb' ); 
-    
-        // split the string on commas
-        // $data[ 0 ] == "data:image/png;base64"
-        // $data[ 1 ] == <actual base64 string>
         $data = explode( ',', $base64_string );
-    
-        // we could add validation here with ensuring count( $data ) > 1
         fwrite( $ifp, base64_decode( $data[ 1 ] ) );
-    
-        // clean up the file resource
         fclose( $ifp ); 
-    
         return $output_file; 
+    }
+
+    private function createPaginationArray($page, $perPage, $booksCount, $params, $route){
+
+        $totalPages = (int) ceil($booksCount/$perPage);
+        $previousPage = ($page == 1) ? 1 : ($page-1);
+        $nextPage = ($page == $totalPages) ? $totalPages : ($page+1);
+        $totalButtonShow = 9;
+        $firstCase = (int) ceil($totalButtonShow/2);
+        $secondCase = (int) floor($totalButtonShow/2);
+        $thirdCase = (int) floor(($totalButtonShow-4)/2);
+        $pageButtonArray = [];
+        if($totalPages > $totalButtonShow){
+            if($page <= $firstCase){
+                for ($i = 1; $i <= $totalButtonShow-2; $i++){
+                    $params['page'] = $i;
+                    $pageLink = route($route, $params);
+                    $pageButtonArray[] = ['page_number'=>$i, 'pageLink'=>$pageLink];
+                }
+                $pageButtonArray[] = ['page_number'=>'...', 'pageLink'=>'javascript:void(0)'];
+                $params['page'] = $totalPages;
+                $pageButtonArray[] = ['page_number'=>$totalPages, 'pageLink'=>route($route, $params)];
+            }elseif($page >= $totalPages-$secondCase && $page <= $totalPages){
+                $params['page'] = 1;
+                $pageButtonArray[] = ['page_number'=>1, 'pageLink'=>route($route, $params)];
+                $pageButtonArray[] = ['page_number'=>'...', 'pageLink'=>'javascript:void(0)'];
+                for ($i = $totalPages-($totalButtonShow-3); $i <= $totalPages; $i++){
+                    $params['page'] = $i;
+                    $pageLink = route($route, $params);
+                    $pageButtonArray[] = ['page_number'=>$i, 'pageLink'=>$pageLink];
+                }
+            }else{
+                $params['page'] = 1;
+                $pageButtonArray[] = ['page_number'=>1, 'pageLink'=>route($route, $params)];
+                $pageButtonArray[] = ['page_number'=>'...', 'pageLink'=>'javascript:void(0)'];
+                for ($i = $page-$thirdCase; $i <= $page+$thirdCase; $i++){
+                    $params['page'] = $i;
+                    $pageLink = route($route, $params);
+                    $pageButtonArray[] = ['page_number'=>$i, 'pageLink'=>$pageLink];
+                }
+                $pageButtonArray[] = ['page_number'=>'...', 'pageLink'=>'javascript:void(0)'];
+                $params['page'] = $totalPages;
+                $pageButtonArray[] = ['page_number'=>$totalPages, 'pageLink'=>route($route, $params)];
+            }
+        }else{
+
+            for ($i = 1; $i <= $totalPages; $i++){
+
+                $params['page'] = $i;
+                $pageLink = route($route, $params);
+                $pageButtonArray[] = ['page_number'=>$i, 'pageLink'=>$pageLink];
+            }
+        }
+
+        $pagination = [
+            'previousPage'=>$previousPage,
+            'nextPage'=>$nextPage,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'pageButtonArray' => $pageButtonArray
+        ];
+
+        return $pagination;
+    }
+    public function insertBulkBookdata(Request $request){
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://fakerapi.it/api/v1/books?_quantity=100',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        $responseArray = json_decode($response,true);
+        Book::insert($responseArray['data']);
     }
 }

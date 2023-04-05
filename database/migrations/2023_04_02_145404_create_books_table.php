@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('author');
             $table->string('genre');
             $table->text('description');
-            $table->integer('isbn');
+            $table->string('isbn');
             $table->string('image');
             $table->datetime('published');
             $table->string('publisher');

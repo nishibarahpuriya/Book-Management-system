@@ -26,7 +26,8 @@
                     </div>
                     <div class="form-group">
                         <label>Image</label>
-                        <input type="file" class="form-control">
+                        <input type="file" @change='uploadPhoto' name="photo" class="form-control">
+                        <td><img v-bind:src="'/images/books-image/'+book.image" style="height: 40px; width: 50px;"></td>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
@@ -58,6 +59,20 @@ export default {
         })
     },
     methods: {
+     uploadPhoto(e){
+              let file = e.target.files[0];
+                let reader = new FileReader();  
+
+                if(file['size'] < 2111775)
+                {
+                    reader.onloadend = (file) => {
+                     this.book.photo = reader.result;
+                    }              
+                     reader.readAsDataURL(file);
+                }else{
+                    alert('File size can not be bigger than 2 MB')
+                }
+            },
         updateBook() {
             this.$axios.get('/sanctum/csrf-cookie').then(response => {
                 this.$axios.post(`/api/books/update/${this.$route.params.id}`, this.book)
